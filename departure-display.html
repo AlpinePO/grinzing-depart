@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Abfahrten</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;700;900&display=swap');
+
+  :root {
+    --bg:         #0d1117;
+    --panel:      #161c26;
+    --border:     #2a3a4a;
+    --amber:      #ffb830;
+    --amber-bg:   #3a2500;
+    --green:      #00e87a;
+    --green-bg:   #002a18;
+    --text:       #ffffff;
+    --text2:      #b0c8df;
+    --muted:      #4a6075;
+    --mono:       'Share Tech Mono', monospace;
+    --sans:       'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+  }
+
+  body {
+    display: grid;
+    grid-template-rows: auto 1fr 1fr auto;
+    height: 100dvh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 1.2rem;
+    background: #080c10;
+    border-bottom: 2px solid var(--amber);
+  }
+
+  .wl-label {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .wl-sub {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+    margin-top: 0.1rem;
+  }
+
+  .clock { 
+    font-family: var(--mono);
+    font-size: 2.4rem;
+    color: var(--amber);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-align: right;
+  }
+
+  .clock-date {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text2);
+    margin-top: 0.15rem;
+    letter-spacing: 0.04em;
+    text-align: right;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.5rem 1.2rem;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .line-badge {
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 3px;
+    min-width: 3.4rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+    font-weight: bold;
+  }
+
+  .line-badge.tram {
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 2px solid var(--amber);
+  }
+
+  .line-badge.bus {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 2px solid var(--green);
+  }
+
+  .stop-name {
+    font-weight: 900;
+    font-size: 1.35rem;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+  }
+
+  .stop-towards {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text2);
+    margin-top: 0.1rem;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── DEPARTURE ROWS ── */
+  .departures {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: space-evenly;
+  }
+
+  .departure-row {
+    display: grid;
+    grid-template-columns: 1.8rem 1fr auto;
+    align-items: center;
+    padding: 0.45rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    gap: 0.9rem;
+  }
+
+  .departure-row:last-child { border-bottom: none; }
+
+  .dep-num {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.1rem 0;
+    line-height: 1.6;
+  }
+
+  .dep-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .dep-clock {
+    font-family: var(--mono);
+    font-size: 2.1rem;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    font-weight: bold;
+  }
+
+  .dep-clock.imminent { color: var(--amber); }
+
+  .dep-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .dep-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+
+  .dep-bar-fill.tram { background: var(--amber); }
+  .dep-bar-fill.bus  { background: var(--green); }
+
+  .dep-right {
+    text-align: right;
+  }
+
+  .dep-countdown {
+    font-family: var(--mono);
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--text2);
+    line-height: 1;
+  }
+
+  .dep-unit {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 400;
+    display: block;
+    text-align: right;
+    margin-top: 0.1rem;
+  }
+
+  .soon .dep-countdown { color: var(--amber); }
+  .soon .dep-unit      { color: var(--amber); opacity: 0.7; }
+
+  .now-label {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    color: var(--amber);
+    font-weight: bold;
+    animation: blink 1s step-start infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  /* ── FOOTER ── */
+  footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 1.2rem;
+    background: #080c10;
+    border-top: 1px solid var(--border);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text2);
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+
+  .dot.error { background: #ff3355; animation: none; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .last-fetch {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text2);
+  }
+
+  .no-data {
+    padding: 1rem 1.2rem;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--text2);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="wl-label">Wiener Linien</div>
+    <div class="wl-sub">Nächste Abfahrten · Next Departures</div>
+  </div>
+  <div>
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clock-date">---</div>
+  </div>
+</header>
+
+<div class="panel" id="panel-0"></div>
+<div class="panel" id="panel-1"></div>
+
+<footer>
+  <div class="status">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Verbinde…</span>
+  </div>
+  <div class="last-fetch" id="last-fetch"></div>
+</footer>
+
+<script>
+  // ── CONFIGURATION — edit these values ───────────────────────────
+  const STOPS = [
+    { rbl: 1221, name: 'Grinzing', line: '38',  towards: 'Schottentor',   type: 'tram' },
+    { rbl: 873, name: 'Grinzing', line: '38A', towards: 'Heiligenstadt', type: 'bus'  },
+  ];
+  const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+  // ────────────────────────────────────────────────────────────────
+
+  const API_URL = 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&stopId=873';
+
+  let lastData = null;
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('clock-date').textContent =
+      now.toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (lastData) renderAll(lastData);
+  }
+
+  function setStatus(ok, text) {
+    document.getElementById('status-dot').className = 'dot' + (ok ? '' : ' error');
+    document.getElementById('status-text').textContent = text;
+  }
+
+async function fetchData() {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    lastData = await res.json();
+    renderAll(lastData);
+    const t = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('last-fetch').textContent = `↻ ${t}`;
+    setStatus(true, 'Live');
+  } catch (e) {
+    setStatus(false, e.message);
+    document.getElementById('last-fetch').textContent = String(e);
+  }
+}
+
+  function renderAll(json) {
+    const monitors = json?.data?.monitors ?? [];
+    const byRbl = {};
+    for (const m of monitors) {
+      const rbl = m?.locationStop?.properties?.attributes?.rbl;
+      if (rbl) byRbl[rbl] = m;
+    }
+    STOPS.forEach((stop, idx) => renderPanel(idx, stop, byRbl[stop.rbl]));
+  }
+
+  function renderPanel(idx, stop, monitor) {
+    const now = new Date();
+    const el = document.getElementById(`panel-${idx}`);
+    const ac = stop.type === 'bus' ? 'bus' : 'tram';
+
+    // Collect and sort departures
+    let deps = [];
+    for (const line of monitor?.lines ?? []) {
+      for (const dep of line?.departures?.departure ?? []) {
+        const ts = dep?.departureTime?.timeReal || dep?.departureTime?.timePlanned;
+        if (ts) deps.push(new Date(ts));
+      }
+    }
+    deps.sort((a, b) => a - b);
+    deps = deps.slice(0, 3);
+
+    let rowsHtml = '';
+    if (deps.length === 0) {
+      rowsHtml = `<div class="no-data">Keine Daten verfügbar / No data available</div>`;
+    } else {
+      deps.forEach((depDate, i) => {
+        const diffMs  = depDate - now;
+        const diffMin = Math.round(diffMs / 60000);
+        const imminent = diffMin <= 1;
+        const soon     = diffMin <= 5;
+        const barPct   = Math.max(0, Math.min(100, 100 - (diffMin / 30) * 100));
+        const clockStr = depDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+
+        const countdownHtml = diffMin <= 0
+          ? `<div class="now-label">Jetzt!</div>`
+          : `<div class="dep-countdown">${diffMin}</div><span class="dep-unit">min</span>`;
+
+        rowsHtml += `
+          <div class="departure-row${soon ? ' soon' : ''}">
+            <div class="dep-num">${i + 1}</div>
+            <div class="dep-main">
+              <div class="dep-clock${imminent ? ' imminent' : ''}">${clockStr}</div>
+              <div class="dep-bar"><div class="dep-bar-fill ${ac}" style="width:${barPct}%"></div></div>
+            </div>
+            <div class="dep-right">${countdownHtml}</div>
+          </div>`;
+      });
+    }
+
+    el.innerHTML = `
+      <div class="panel-header">
+        <div class="line-badge ${ac}">${stop.line}</div>
+        <div>
+          <div class="stop-name">${stop.name}</div>
+          <div class="stop-towards">→ ${stop.towards}</div>
+        </div>
+      </div>
+      <div class="departures">${rowsHtml}</div>`;
+  }
+
+  setInterval(updateClock, 1000);
+  updateClock();
+  fetchData();
+  setInterval(fetchData, REFRESH_MS);
+</script>
+</body>
+</html>
