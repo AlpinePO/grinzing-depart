@@ -318,7 +318,7 @@
   const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
   // ────────────────────────────────────────────────────────────────
 
-  const API_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&stopId=873');
+  const API_URL = 'https://corsproxy.io/?url=';
 
   let lastData = null;
 
@@ -338,7 +338,7 @@
 
 async function fetchData() {
   try {
-    const res = await fetch(API_URL + '&_=' + Date.now());
+    const res = await fetch(API_URL + encodeURIComponent('https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&stopId=873&_=' + Date.now()));
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     lastData = await res.json();
     renderAll(lastData);
