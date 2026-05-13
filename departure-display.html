@@ -338,7 +338,7 @@
 
 async function fetchData() {
   try {
-    const res = await fetch(API_URL);
+    const res = await fetch(API_URL + '&_=' + Date.now());
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     lastData = await res.json();
     renderAll(lastData);
