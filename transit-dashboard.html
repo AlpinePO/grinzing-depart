@@ -241,14 +241,17 @@ async function fetchOebbStop(wlStopId) {
 async function fetchData() {
   setStatus(null);
   try {
-    // All fetches sequential to avoid cors.sh rate limiting
-    const wlRes1 = await Promise.all(WL_STOP_IDS.slice(0, 3).map(fetchWLStop));
-    const wlRes2 = await Promise.all(WL_STOP_IDS.slice(3).map(fetchWLStop));
-    const oebbOberdoebling = await fetchOebbStop(1288);
-    const oebbHandelskai   = await fetchOebbStop(4648);
+    // Three parallel batches: WL batch 1, WL batch 2, both ÖBB stops together
+    const [wlRes1, wlRes2, oebbResults] = await Promise.all([
+      Promise.all(WL_STOP_IDS.slice(0, 3).map(fetchWLStop)),
+      Promise.all(WL_STOP_IDS.slice(3).map(fetchWLStop)),
+      Promise.all([fetchOebbStop(1288), fetchOebbStop(4648)])
+    ]);
+    const [oebbOberdoebling, oebbHandelskai] = oebbResults;
 
     stopData = {};
 
+    // Store WL results — wlRes1 + wlRes2 match WL_STOP_IDS order
     const allWlRes = [...wlRes1, ...wlRes2];
     WL_STOP_IDS.forEach((sid, i) => {
       const monitors = allWlRes[i]?.data?.monitors ?? [];
@@ -257,6 +260,7 @@ async function fetchData() {
       stopData[sid] = lines;
     });
 
+    // Store ÖBB results under their internal keys
     stopData[1288] = oebbOberdoebling;
     stopData[4648] = oebbHandelskai;
 
