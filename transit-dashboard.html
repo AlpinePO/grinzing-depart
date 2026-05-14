@@ -376,21 +376,14 @@ const CORS_HEADERS = {
 };
 const REFRESH_MS = 5 * 60 * 1000;
 
-// All unique stopIDs needed
+// Only departure stopIDs needed — arrivals are calculated via scheduled duration offsets
 const ALL_STOP_IDS = [
   873,   // Grinzing 38A (start R1, R2)
-  826,   // Heiligenstadt arrival (38A end)
   4402,  // Heiligenstadt U4 departure
-  4408,  // Schottenring U4 arrival
   4214,  // Schottenring U2 departure
-  4263,  // Praterstern U2 arrival (R1 end)
-  4410,  // Schwedenplatz U4 arrival
   4113,  // Schwedenplatz U1 departure
-  4117,  // Praterstern U1 arrival (R2 end)
   1221,  // Grinzing 38 (start R3)
-  1226,  // Oberdöbling arrival (38 end)
-  1288,  // Oberdöbling S45 departure
-  4648   // Handelskai S45 arrival (R3 end)
+  1288   // Oberdöbling S45 departure
 ];
 
 // Route definitions
@@ -513,16 +506,14 @@ async function fetchStop(stopId) {
 async function fetchData() {
   setStatus(null, 'Loading');
   try {
-    // Split into 3 batches to avoid rate limiting
-    const batch1 = ALL_STOP_IDS.slice(0, 5);
-    const batch2 = ALL_STOP_IDS.slice(5, 9);
-    const batch3 = ALL_STOP_IDS.slice(9);
+    // Split into 2 batches to avoid rate limiting (6 stops total)
+    const batch1 = ALL_STOP_IDS.slice(0, 3);
+    const batch2 = ALL_STOP_IDS.slice(3);
 
     const results1 = await Promise.all(batch1.map(fetchStop));
     const results2 = await Promise.all(batch2.map(fetchStop));
-    const results3 = await Promise.all(batch3.map(fetchStop));
 
-    const allResults = [...results1, ...results2, ...results3];
+    const allResults = [...results1, ...results2];
     const allStopIds = ALL_STOP_IDS;
 
     stopData = {};
@@ -554,12 +545,27 @@ function setStatus(ok, msg) {
   else { dot.className = 'status-dot error'; dot.style.background = 'var(--late)'; }
 }
 
+// ─── SCHEDULED DURATIONS (minutes) ───────────────────────────────────────────
+// Keyed by "depStop->arrStop", used to calculate arrival times from departure times
+const DURATIONS = {
+  '873->826':   9,   // 38A  Grinzing → Heiligenstadt
+  '4402->4408': 6,   // U4   Heiligenstadt → Schottenring
+  '4402->4410': 8,   // U4   Heiligenstadt → Schwedenplatz
+  '4214->4263': 3,   // U2   Schottenring → Praterstern
+  '4113->4117': 2,   // U1   Schwedenplatz → Praterstern
+  '1221->1226': 4,   // 38   Grinzing → Oberdöbling
+  '1288->4648': 9    // S45  Oberdöbling → Handelskai
+};
+
+function getDuration(depStop, arrStop) {
+  return DURATIONS[`${depStop}->${arrStop}`] ?? null;
+}
+
 // ─── DATA HELPERS ─────────────────────────────────────────────────────────────
 
 // Get departures for a specific line name at a stop, sorted by planned time
 function getDepartures(stopId, lineName) {
   const lines = stopData[stopId] ?? [];
-  // Find matching line (case-insensitive)
   const line = lines.find(l => l.name?.toUpperCase() === lineName?.toUpperCase());
   if (!line) return [];
   return (line.departures?.departure ?? []).map(d => ({
@@ -569,14 +575,17 @@ function getDepartures(stopId, lineName) {
   })).sort((a, b) => a.planned - b.planned);
 }
 
-// Given a departure from depStop at depPlanned, find the matching arrival at arrStop
-// Strategy: find the next departure of the same line at arrStop after depPlanned, within 60 min
-function findArrival(arrStop, lineName, afterPlanned) {
-  const deps = getDepartures(arrStop, lineName);
-  // The vehicle passes arrStop after it passes depStop
-  // Find soonest planned time at arrStop that is after afterPlanned
-  const match = deps.find(d => d.planned > afterPlanned);
-  return match || null;
+// Derive arrival times from departure time + scheduled duration.
+// arrPlanned = depPlanned + duration
+// arrReal    = depReal    + duration  (same vehicle, delay carried through)
+function calcArrival(depPlanned, depReal, depStop, arrStop) {
+  const dur = getDuration(depStop, arrStop);
+  if (dur === null) return { arrPlanned: null, arrReal: null };
+  const ms = dur * 60000;
+  return {
+    arrPlanned: new Date(depPlanned.getTime() + ms),
+    arrReal:    new Date(depReal.getTime()    + ms)
+  };
 }
 
 // Delta in minutes: positive = late, negative = early
@@ -600,13 +609,14 @@ function deltaHTML(real, planned) {
 
 // ─── ROUTE RESOLUTION ─────────────────────────────────────────────────────────
 
-// For a given start departure (planned time at start stop),
-// resolve all segments, returning null if any segment has no data
+// For a given start departure resolve all segments using:
+// - Live departure times from API for each segment's depStop
+// - Arrival times derived from depReal + scheduled duration
+// - Transfer time = depReal of next segment minus arrReal of previous segment
 function resolveRoute(route, startDep) {
   const segments = [];
   let prevArrPlanned = null;
-  let prevArrReal = null;
-  let prevArrStop = null;
+  let prevArrReal    = null;
 
   for (let i = 0; i < route.segments.length; i++) {
     const seg = route.segments[i];
@@ -614,26 +624,24 @@ function resolveRoute(route, startDep) {
     let depPlanned, depReal;
 
     if (i === 0) {
-      // First segment: departure is the start departure
+      // First segment uses the top-level departure being rendered
       depPlanned = startDep.planned;
-      depReal = startDep.real;
+      depReal    = startDep.real;
     } else {
-      // Subsequent segments: find the next departure of this line at depStop
-      // after prevArrPlanned
+      // Later segments: find the first live departure of this line at depStop
+      // that is on or after prevArrPlanned (earliest possible arrival at transfer)
       const deps = getDepartures(seg.depStop, seg.line);
-      const candidate = deps.find(d => d.planned > prevArrPlanned);
-      if (!candidate) return null;
+      const candidate = deps.find(d => d.planned >= prevArrPlanned);
+      if (!candidate) return null; // no connecting service in data window
       depPlanned = candidate.planned;
-      depReal = candidate.real;
+      depReal    = candidate.real;
     }
 
-    // Find arrival at arrStop: next occurrence of this line after depPlanned
-    const arr = findArrival(seg.arrStop, seg.line, depPlanned);
-    // arr may be null if no data available — we still show what we have
+    // Arrival = departure + scheduled duration for this stop pair
+    const { arrPlanned, arrReal } = calcArrival(depPlanned, depReal, seg.depStop, seg.arrStop);
 
-    const transferAllowance = seg.transferFromPrev ?? null;
-
-    // Calculate actual transfer time if we have previous arrival and current departure
+    // Transfer allowance: actual minutes between previous arrival (real) and
+    // this departure (real). Only meaningful from segment 2 onwards.
     let transferActualMin = null;
     if (i > 0 && prevArrReal && depReal) {
       transferActualMin = Math.round((depReal - prevArrReal) / 60000);
@@ -643,15 +651,15 @@ function resolveRoute(route, startDep) {
       ...seg,
       depPlanned,
       depReal,
-      arrPlanned: arr?.planned ?? null,
-      arrReal: arr?.real ?? null,
-      transferAllowance,
+      arrPlanned,
+      arrReal,
+      transferAllowance:  seg.transferFromPrev ?? null,
       transferActualMin
     });
 
-    prevArrPlanned = arr?.planned ?? depPlanned; // fallback to dep if no arr
-    prevArrReal = arr?.real ?? depReal;
-    prevArrStop = seg.arrStop;
+    // Pass this segment's arrival forward for next iteration
+    prevArrPlanned = arrPlanned ?? depPlanned;
+    prevArrReal    = arrReal    ?? depReal;
   }
 
   return segments;
