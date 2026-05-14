@@ -531,8 +531,9 @@ async function fetchOebbStop(wlStopId) {
     // DEBUG: log line name and direction so we can confirm exact strings
     console.log('ÖBB dep:', name, '|', dep.direction);
 
-    // Normalise line name: treat "S 45" and "S45" as equivalent
-    const normName = name.replace(/\s+/g, '');
+    // Normalise line name: strip spaces and train number suffix
+    // e.g. "S 45 (Train-No. 92893)" -> "S45"
+    const normName = name.replace(/\s+/g, '').replace(/\(.*\)$/, '');
 
     // For stopID 1288 (Oberdöbling) only keep S45 towards Handelskai
     if (wlStopId === 1288 && normName !== 'S45') continue;
