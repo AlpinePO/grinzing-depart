@@ -495,38 +495,87 @@ updateClock();
 
 // ─── FETCH ────────────────────────────────────────────────────────────────────
 
-async function fetchStop(stopId) {
+// ÖBB IBNR station IDs for S45 stops (not served by Wiener Linien API)
+const OEBB_STOPS = {
+  1288: '8100441',  // Wien Oberdöbling  (S45 departure stop)
+  4648: '8101947'   // Wien Handelskai   (S45 arrival stop — unused for dep but kept for consistency)
+};
+const OEBB_API = 'https://v6.oebb.transport.rest';
+
+// Fetch one Wiener Linien stop
+async function fetchWLStop(stopId) {
   const ts = Date.now();
   const url = API_URL + `https://www.wienerlinien.at/ogd_realtime/monitor?stopId=${stopId}&_=${ts}`;
   const res = await fetch(url, { headers: CORS_HEADERS });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for stop ${stopId}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for WL stop ${stopId}`);
   return res.json();
+}
+
+// Fetch one ÖBB stop and normalise into the same line/departure structure
+// used by stopData, so getDepartures() works without modification.
+// ÖBB response: { departures: [{ when, plannedWhen, delay, line: { name }, direction }] }
+// We only want S45 departures in the towards-Handelskai direction.
+async function fetchOebbStop(wlStopId) {
+  const ibnr = OEBB_STOPS[wlStopId];
+  const url = `${OEBB_API}/stops/${ibnr}/departures?results=20&duration=90`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ÖBB stop ${ibnr}`);
+  const json = await res.json();
+
+  // Normalise ÖBB departures into WL-compatible line objects keyed by line name
+  const lineMap = {};
+  for (const dep of (json.departures ?? [])) {
+    const name = dep.line?.name ?? '';
+    if (!name) continue;
+    // For stopID 1288 (Oberdöbling) only keep S45 towards Handelskai
+    if (wlStopId === 1288 && name !== 'S45') continue;
+    if (wlStopId === 1288 && dep.direction &&
+        !dep.direction.toLowerCase().includes('handelskai')) continue;
+
+    if (!lineMap[name]) {
+      lineMap[name] = {
+        name,
+        departures: { departure: [] }
+      };
+    }
+    lineMap[name].departures.departure.push({
+      departureTime: {
+        timePlanned: dep.plannedWhen ?? dep.when,
+        timeReal:    dep.when ?? dep.plannedWhen,
+        countdown:   dep.delay != null ? Math.round(dep.delay / 60) : 0
+      }
+    });
+  }
+  return Object.values(lineMap);
 }
 
 async function fetchData() {
   setStatus(null, 'Loading');
   try {
-    // Split into 2 batches to avoid rate limiting (6 stops total)
-    const batch1 = ALL_STOP_IDS.slice(0, 3);
-    const batch2 = ALL_STOP_IDS.slice(3);
+    // Wiener Linien stops — split into 2 batches to respect cors.sh rate limit
+    const wlBatch1 = ALL_STOP_IDS.slice(0, 3);
+    const wlBatch2 = ALL_STOP_IDS.slice(3);
 
-    const results1 = await Promise.all(batch1.map(fetchStop));
-    const results2 = await Promise.all(batch2.map(fetchStop));
+    const [wlResults1, wlResults2, oebbResult] = await Promise.all([
+      Promise.all(wlBatch1.map(fetchWLStop)),
+      Promise.all(wlBatch2.map(fetchWLStop)),
+      fetchOebbStop(1288)   // Oberdöbling S45 — fetched directly, no CORS proxy needed
+    ]);
 
-    const allResults = [...results1, ...results2];
-    const allStopIds = ALL_STOP_IDS;
+    const allWlResults = [...wlResults1, ...wlResults2];
 
     stopData = {};
-    allResults.forEach((json, i) => {
-      const sid = allStopIds[i];
-      const monitors = json?.data?.monitors ?? [];
-      // Collect all lines across all monitors for this stopId
+
+    // Store Wiener Linien results
+    ALL_STOP_IDS.forEach((sid, i) => {
+      const monitors = allWlResults[i]?.data?.monitors ?? [];
       const lines = [];
-      monitors.forEach(m => {
-        (m.lines ?? []).forEach(l => lines.push(l));
-      });
+      monitors.forEach(m => (m.lines ?? []).forEach(l => lines.push(l)));
       stopData[sid] = lines;
     });
+
+    // Store ÖBB result under the WL stopID key so route logic finds it normally
+    stopData[1288] = oebbResult;
 
     renderAll();
     const t = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
