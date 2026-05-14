@@ -470,6 +470,14 @@ const ROUTES = [
         arrStop: 4648,
         label: 'S45',
         transferFromPrev: 3
+      },
+      {
+        name: 'Handelskai → Praterstern',
+        line: 'MAINLINE',
+        depStop: 4648,
+        arrStop: 1290201,
+        label: 'ÖBB',
+        transferFromPrev: 3
       }
     ]
   }
@@ -498,8 +506,13 @@ updateClock();
 // ÖBB IBNR station IDs for S45 stops (not served by Wiener Linien API)
 const OEBB_STOPS = {
   1288: '1291904',  // Wien Oberdöbling Bahnhst (S45 departure stop)
-  4648: '1292001'   // Wien Handelskai Bahnhst (U) (S45 arrival stop)
+  4648: '8100349'   // Wien Handelskai (departures to Praterstern and beyond)
 };
+// Lines that pass through Handelskai towards Praterstern
+const HANDELSKAI_LINES = ['REX1','S1','S7','S4','S2','REX3','CJX9','S3'];
+const HANDELSKAI_DIRECTIONS = [
+  'mödling', 'meidling', 'payerbach', 'airport', 'wr.neustadt', 'wiener neustadt'
+];
 const OEBB_API = 'https://v6.oebb.transport.rest/api';
 
 // Fetch one Wiener Linien stop
@@ -540,6 +553,16 @@ async function fetchOebbStop(wlStopId) {
     if (wlStopId === 1288 && dep.direction &&
         !dep.direction.toLowerCase().includes('handelskai')) continue;
 
+    // For stopID 4648 (Handelskai) only keep mainline trains towards Praterstern
+    if (wlStopId === 4648) {
+      if (!HANDELSKAI_LINES.includes(normName)) continue;
+      if (dep.direction) {
+        const dir = dep.direction.toLowerCase();
+        const validDir = HANDELSKAI_DIRECTIONS.some(d => dir.includes(d));
+        if (!validDir) continue;
+      }
+    }
+
     // Store under normalised name so getDepartures('S45') finds it
     const storeKey = normName;
     if (!lineMap[storeKey]) {
@@ -566,10 +589,11 @@ async function fetchData() {
     const wlBatch1 = ALL_STOP_IDS.slice(0, 3);
     const wlBatch2 = ALL_STOP_IDS.slice(3);
 
-    const [wlResults1, wlResults2, oebbResult] = await Promise.all([
+    const [wlResults1, wlResults2, oebbOberdoebling, oebbHandelskai] = await Promise.all([
       Promise.all(wlBatch1.map(fetchWLStop)),
       Promise.all(wlBatch2.map(fetchWLStop)),
-      fetchOebbStop(1288)   // Oberdöbling S45 — fetched directly, no CORS proxy needed
+      fetchOebbStop(1288),   // Oberdöbling S45 departures
+      fetchOebbStop(4648)    // Handelskai mainline departures towards Praterstern
     ]);
 
     const allWlResults = [...wlResults1, ...wlResults2];
@@ -584,8 +608,9 @@ async function fetchData() {
       stopData[sid] = lines;
     });
 
-    // Store ÖBB result under the WL stopID key so route logic finds it normally
-    stopData[1288] = oebbResult;
+    // Store ÖBB results under their internal keys so route logic finds them normally
+    stopData[1288] = oebbOberdoebling;
+    stopData[4648] = oebbHandelskai;
 
     renderAll();
     const t = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -613,7 +638,8 @@ const DURATIONS = {
   '4214->4263': 3,   // U2   Schottenring → Praterstern
   '4113->4117': 2,   // U1   Schwedenplatz → Praterstern
   '1221->1226': 4,   // 38   Grinzing → Oberdöbling
-  '1288->4648': 9    // S45  Oberdöbling → Handelskai
+  '1288->4648': 9,   // S45  Oberdöbling → Handelskai
+  '4648->1290201': 4  // mainline  Handelskai → Praterstern
 };
 
 function getDuration(depStop, arrStop) {
@@ -622,16 +648,28 @@ function getDuration(depStop, arrStop) {
 
 // ─── DATA HELPERS ─────────────────────────────────────────────────────────────
 
-// Get departures for a specific line name at a stop, sorted by planned time
+// Get departures for a specific line name at a stop, sorted by planned time.
+// Special value 'MAINLINE' returns departures across all HANDELSKAI_LINES combined.
 function getDepartures(stopId, lineName) {
   const lines = stopData[stopId] ?? [];
-  const line = lines.find(l => l.name?.toUpperCase() === lineName?.toUpperCase());
-  if (!line) return [];
-  return (line.departures?.departure ?? []).map(d => ({
-    planned: new Date(d.departureTime.timePlanned),
-    real: new Date(d.departureTime.timeReal),
-    countdown: d.departureTime.countdown
-  })).sort((a, b) => a.planned - b.planned);
+  let matchedLines;
+  if (lineName === 'MAINLINE') {
+    matchedLines = lines.filter(l => HANDELSKAI_LINES.includes(l.name?.toUpperCase().replace(/\s+/g, '')));
+  } else {
+    const match = lines.find(l => l.name?.toUpperCase() === lineName?.toUpperCase());
+    matchedLines = match ? [match] : [];
+  }
+  const deps = [];
+  matchedLines.forEach(line => {
+    (line.departures?.departure ?? []).forEach(d => {
+      deps.push({
+        planned: new Date(d.departureTime.timePlanned),
+        real: new Date(d.departureTime.timeReal),
+        countdown: d.departureTime.countdown
+      });
+    });
+  });
+  return deps.sort((a, b) => a.planned - b.planned);
 }
 
 // Derive arrival times from departure time + scheduled duration.
