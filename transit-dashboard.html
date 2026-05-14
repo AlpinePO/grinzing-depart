@@ -497,10 +497,10 @@ updateClock();
 
 // ÖBB IBNR station IDs for S45 stops (not served by Wiener Linien API)
 const OEBB_STOPS = {
-  1288: '8100441',  // Wien Oberdöbling  (S45 departure stop)
-  4648: '8101947'   // Wien Handelskai   (S45 arrival stop — unused for dep but kept for consistency)
+  1288: '1291904',  // Wien Oberdöbling Bahnhst (S45 departure stop)
+  4648: '1292001'   // Wien Handelskai Bahnhst (U) (S45 arrival stop)
 };
-const OEBB_API = 'https://v6.oebb.transport.rest';
+const OEBB_API = 'https://v6.oebb.transport.rest/api';
 
 // Fetch one Wiener Linien stop
 async function fetchWLStop(stopId) {
@@ -517,8 +517,8 @@ async function fetchWLStop(stopId) {
 // We only want S45 departures in the towards-Handelskai direction.
 async function fetchOebbStop(wlStopId) {
   const ibnr = OEBB_STOPS[wlStopId];
-  const url = `${OEBB_API}/stops/${ibnr}/departures?results=20&duration=90`;
-  const res = await fetch(url);
+  const url = API_URL + `${OEBB_API}/stops/${ibnr}/departures?results=20&duration=90&suburban=true`;
+  const res = await fetch(url, { headers: CORS_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ÖBB stop ${ibnr}`);
   const json = await res.json();
 
