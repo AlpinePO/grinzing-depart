@@ -385,24 +385,45 @@ async function fetchData() {
     let deps = [];
     for (const line of monitor?.lines ?? []) {
       for (const dep of line?.departures?.departure ?? []) {
-        const ts = dep?.departureTime?.timeReal || dep?.departureTime?.timePlanned;
-        if (ts) deps.push(new Date(ts));
+        const real    = dep?.departureTime?.timeReal;
+        const planned = dep?.departureTime?.timePlanned;
+        const ts = real || planned;
+        if (ts) deps.push({
+          time:    new Date(ts),
+          planned: planned ? new Date(planned) : null,
+          real:    real    ? new Date(real)    : null
+        });
       }
     }
-    deps.sort((a, b) => a - b);
+    deps.sort((a, b) => a.time - b.time);
     deps = deps.slice(0, 3);
 
     let rowsHtml = '';
     if (deps.length === 0) {
       rowsHtml = `<div class="no-data">Keine Daten verfügbar / No data available</div>`;
     } else {
-      deps.forEach((depDate, i) => {
-        const diffMs  = depDate - now;
-        const diffMin = Math.round(diffMs / 60000);
+      deps.forEach((dep, i) => {
+        const depDate  = dep.time;
+        const diffMs   = depDate - now;
+        const diffMin  = Math.round(diffMs / 60000);
         const imminent = diffMin <= 1;
         const soon     = diffMin <= 5;
         const barPct   = Math.max(0, Math.min(100, 100 - (diffMin / 30) * 100));
         const clockStr = depDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+
+        // Early / late indicator
+        let punctualityHtml = '';
+        if (dep.real && dep.planned) {
+          const diffSec = Math.round((dep.real - dep.planned) / 1000);
+          const diffMins = Math.round(diffSec / 60);
+          if (diffSec > 60) {
+            punctualityHtml = `<span class="punctuality late">+${diffMins} min</span>`;
+          } else if (diffSec < -60) {
+            punctualityHtml = `<span class="punctuality early">${diffMins} min</span>`;
+          } else {
+            punctualityHtml = `<span class="punctuality ontime">On time</span>`;
+          }
+        }
 
         const countdownHtml = diffMin <= 0
           ? `<div class="now-label">Jetzt!</div>`
@@ -412,7 +433,7 @@ async function fetchData() {
           <div class="departure-row${soon ? ' soon' : ''}">
             <div class="dep-num">${i + 1}</div>
             <div class="dep-main">
-              <div class="dep-clock${imminent ? ' imminent' : ''}">${clockStr}</div>
+              <div class="dep-clock${imminent ? ' imminent' : ''}">${clockStr} ${punctualityHtml}</div>
               <div class="dep-bar"><div class="dep-bar-fill ${ac}" style="width:${barPct}%"></div></div>
             </div>
             <div class="dep-right">${countdownHtml}</div>
@@ -437,6 +458,18 @@ async function fetchData() {
   setInterval(fetchData, REFRESH_MS);
 </script>
 <style>
+  .punctuality {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 0.4rem;
+  }
+  .punctuality.late   { background: #3a0010; color: #ff3355; }
+  .punctuality.early  { background: #002a18; color: var(--green); }
+  .punctuality.ontime { background: #1a2a1a; color: var(--green); opacity: 0.7; }
   #refresh-btn {
     position: fixed;
     bottom: 3.5rem;
