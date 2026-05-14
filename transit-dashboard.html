@@ -527,18 +527,27 @@ async function fetchOebbStop(wlStopId) {
   for (const dep of (json.departures ?? [])) {
     const name = dep.line?.name ?? '';
     if (!name) continue;
+
+    // DEBUG: log line name and direction so we can confirm exact strings
+    console.log('ÖBB dep:', name, '|', dep.direction);
+
+    // Normalise line name: treat "S 45" and "S45" as equivalent
+    const normName = name.replace(/\s+/g, '');
+
     // For stopID 1288 (Oberdöbling) only keep S45 towards Handelskai
-    if (wlStopId === 1288 && name !== 'S45') continue;
+    if (wlStopId === 1288 && normName !== 'S45') continue;
     if (wlStopId === 1288 && dep.direction &&
         !dep.direction.toLowerCase().includes('handelskai')) continue;
 
-    if (!lineMap[name]) {
-      lineMap[name] = {
-        name,
+    // Store under normalised name so getDepartures('S45') finds it
+    const storeKey = normName;
+    if (!lineMap[storeKey]) {
+      lineMap[storeKey] = {
+        name: storeKey,
         departures: { departure: [] }
       };
     }
-    lineMap[name].departures.departure.push({
+    lineMap[storeKey].departures.departure.push({
       departureTime: {
         timePlanned: dep.plannedWhen ?? dep.when,
         timeReal:    dep.when ?? dep.plannedWhen,
