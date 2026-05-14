@@ -2,492 +2,918 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>Abfahrten</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vienna Transit Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;700;900&display=swap');
-
   :root {
-    --bg:         #0d1117;
-    --panel:      #161c26;
-    --border:     #2a3a4a;
-    --amber:      #ffb830;
-    --amber-bg:   #3a2500;
-    --green:      #00e87a;
-    --green-bg:   #002a18;
-    --text:       #ffffff;
-    --text2:      #b0c8df;
-    --muted:      #4a6075;
-    --mono:       'Share Tech Mono', monospace;
-    --sans:       'Barlow Condensed', sans-serif;
+    --bg: #0d0f14;
+    --surface: #141720;
+    --surface2: #1c2030;
+    --border: #2a2f42;
+    --accent: #f5a623;
+    --accent2: #4a9eff;
+    --text: #e8eaf0;
+    --text-dim: #7a8099;
+    --early: #34c26a;
+    --late: #ff4d4d;
+    --on-time: #7a8099;
+    --transfer: #a78bfa;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow', sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html, body {
-    height: 100%;
-    overflow: hidden;
+  body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0 0 40px;
   }
 
-  body {
-    display: grid;
-    grid-template-rows: auto 1fr 1fr auto;
-    height: 100dvh;
-  }
-
-  /* ── HEADER ── */
-  header {
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 20px;
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    padding: 0.55rem 1.2rem;
-    background: #080c10;
-    border-bottom: 2px solid var(--amber);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
-  .wl-label {
-    font-family: var(--sans);
-    font-weight: 900;
-    font-size: 1.1rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--amber);
-  }
-
-  .wl-sub {
-    font-size: 0.72rem;
-    font-weight: 400;
-    color: var(--text2);
-    letter-spacing: 0.06em;
-    margin-top: 0.1rem;
-  }
-
-  .clock { 
-    font-family: var(--mono);
-    font-size: 2.4rem;
-    color: var(--amber);
-    letter-spacing: 0.04em;
-    line-height: 1;
-    text-align: right;
-  }
-
-  .clock-date {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text2);
-    margin-top: 0.15rem;
-    letter-spacing: 0.04em;
-    text-align: right;
-  }
-
-  /* ── PANELS ── */
-  .panel {
-    display: flex;
-    flex-direction: column;
-    border-bottom: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .panel-header {
+  .header-left {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
-    padding: 0.5rem 1.2rem;
-    background: rgba(255,255,255,0.04);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+    gap: 14px;
   }
 
-  .line-badge {
+  .wl-logo {
+    background: var(--accent);
+    color: #000;
     font-family: var(--mono);
-    font-size: 1.35rem;
-    padding: 0.2rem 0.65rem;
-    border-radius: 3px;
-    min-width: 3.4rem;
-    text-align: center;
-    letter-spacing: 0.05em;
+    font-size: 13px;
     font-weight: bold;
+    padding: 4px 8px;
+    letter-spacing: 1px;
   }
 
-  .line-badge.tram {
-    background: var(--amber-bg);
-    color: var(--amber);
-    border: 2px solid var(--amber);
-  }
-
-  .line-badge.bus {
-    background: var(--green-bg);
-    color: var(--green);
-    border: 2px solid var(--green);
-  }
-
-  .stop-name {
-    font-weight: 900;
-    font-size: 1.35rem;
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
     color: var(--text);
-    letter-spacing: 0.02em;
-    line-height: 1.1;
+    letter-spacing: 0.5px;
   }
 
-  .stop-towards {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--text2);
-    margin-top: 0.1rem;
-    letter-spacing: 0.01em;
-  }
-
-  /* ── DEPARTURE ROWS ── */
-  .departures {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    justify-content: space-evenly;
-  }
-
-  .departure-row {
-    display: grid;
-    grid-template-columns: 1.8rem 1fr auto;
-    align-items: center;
-    padding: 0.45rem 1.2rem;
-    border-bottom: 1px solid var(--border);
-    gap: 0.9rem;
-  }
-
-  .departure-row:last-child { border-bottom: none; }
-
-  .dep-num {
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    color: var(--muted);
-    text-align: center;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 0.1rem 0;
-    line-height: 1.6;
-  }
-
-  .dep-main {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .dep-clock {
-    font-family: var(--mono);
-    font-size: 2.1rem;
-    color: var(--text);
-    letter-spacing: 0.04em;
-    line-height: 1;
-    font-weight: bold;
-  }
-
-  .dep-clock.imminent { color: var(--amber); }
-
-  .dep-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .dep-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 1s linear;
-  }
-
-  .dep-bar-fill.tram { background: var(--amber); }
-  .dep-bar-fill.bus  { background: var(--green); }
-
-  .dep-right {
-    text-align: right;
-  }
-
-  .dep-countdown {
-    font-family: var(--mono);
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: var(--text2);
-    line-height: 1;
-  }
-
-  .dep-unit {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: var(--muted);
-    font-weight: 400;
-    display: block;
-    text-align: right;
-    margin-top: 0.1rem;
-  }
-
-  .soon .dep-countdown { color: var(--amber); }
-  .soon .dep-unit      { color: var(--amber); opacity: 0.7; }
-
-  .now-label {
-    font-family: var(--mono);
-    font-size: 1.1rem;
-    color: var(--amber);
-    font-weight: bold;
-    animation: blink 1s step-start infinite;
-  }
-
-  @keyframes blink { 50% { opacity: 0.25; } }
-
-  /* ── FOOTER ── */
-  footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.35rem 1.2rem;
-    background: #080c10;
-    border-top: 1px solid var(--border);
-  }
-
-  .status {
+  .header-right {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text2);
+    gap: 16px;
   }
 
-  .dot {
+  .clock {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .status-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
-    background: var(--green);
-    flex-shrink: 0;
+    background: var(--early);
     animation: pulse 2s infinite;
   }
+  .status-dot.error { background: var(--late); animation: none; }
 
-  .dot.error { background: #ff3355; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
 
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   .last-fetch {
     font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--text2);
+    font-size: 11px;
+    color: var(--text-dim);
   }
 
-  .no-data {
-    padding: 1rem 1.2rem;
+  /* Main layout */
+  .main {
+    padding: 20px 16px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Group heading */
+  .group-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin: 24px 0 12px;
+    padding-left: 4px;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+
+  /* Departure card (one per departure time) */
+  .dep-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .dep-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dep-num {
     font-family: var(--mono);
-    font-size: 0.95rem;
-    color: var(--text2);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .dep-time {
+    font-family: var(--mono);
+    font-size: 20px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .dep-delta {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .dep-delta.early { color: var(--early); }
+  .dep-delta.late { color: var(--late); }
+  .dep-delta.ontime { color: var(--on-time); }
+
+  .dep-line-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--accent2);
+    color: #000;
+    padding: 2px 7px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-left: auto;
+  }
+
+  /* Route block within a departure */
+  .route-block {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+  .route-block:last-child { border-bottom: none; }
+
+  .route-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .route-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    background: var(--accent);
+    color: #000;
+  }
+
+  .route-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+
+  .route-summary {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+    letter-spacing: 1px;
+  }
+
+  /* Segment table */
+  .seg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .seg-table th {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 4px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .seg-table td {
+    padding: 6px 8px;
+    border-bottom: 1px dotted var(--border);
+    vertical-align: middle;
+  }
+
+  .seg-table tr:last-child td { border-bottom: none; }
+
+  .seg-name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .seg-line {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .time-cell {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .time-delta {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 4px;
+  }
+  .time-delta.early { color: var(--early); }
+  .time-delta.late { color: var(--late); }
+
+  /* Transfer row */
+  .transfer-row td {
+    background: #16141f;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transfer-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--transfer);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .transfer-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--transfer);
+    text-align: right;
+  }
+
+  /* No valid routes */
+  .no-routes {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 8px 0;
+  }
+
+  /* Loading / error */
+  .status-bar {
+    text-align: center;
+    padding: 40px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    color: var(--late);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 20px;
+    border: 1px solid var(--late);
+    margin: 20px 0;
+    background: #1a0e0e;
+  }
+
+  @media (max-width: 600px) {
+    .clock { font-size: 17px; }
+    .dep-time { font-size: 16px; }
+    .seg-table th, .seg-table td { padding: 4px 5px; }
   }
 </style>
 </head>
 <body>
 
-<header>
-  <div>
-    <div class="wl-label">Wiener Linien</div>
-    <div class="wl-sub">Nächste Abfahrten · Next Departures</div>
+<div class="header">
+  <div class="header-left">
+    <div class="wl-logo">WL</div>
+    <div class="header-title">Grinzing → Praterstern</div>
   </div>
-  <div>
+  <div class="header-right">
+    <div class="status-dot" id="status-dot"></div>
     <div class="clock" id="clock">--:--:--</div>
-    <div class="clock-date" id="clock-date">---</div>
+    <div class="last-fetch" id="last-fetch">—</div>
+    <button class="refresh-btn" onclick="fetchData()">↻ Refresh</button>
   </div>
-</header>
+</div>
 
-<div class="panel" id="panel-0"></div>
-<div class="panel" id="panel-1"></div>
-
-<footer>
-  <div class="status">
-    <span class="dot" id="status-dot"></span>
-    <span id="status-text">Verbinde…</span>
-  </div>
-  <div class="last-fetch" id="last-fetch"></div>
-</footer>
+<div class="main" id="main">
+  <div class="status-bar"><span class="spinner"></span>Loading...</div>
+</div>
 
 <script>
-  // ── CONFIGURATION — edit these values ───────────────────────────
-  const STOPS = [
-    { rbl: 1221, name: 'Grinzing', line: '38',  towards: 'Schottentor',   type: 'tram' },
-    { rbl: 873, name: 'Grinzing', line: '38A', towards: 'Heiligenstadt', type: 'bus'  },
-  ];
-  const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
-  // ────────────────────────────────────────────────────────────────
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
 
-  const API_URL = 'https://proxy.cors.sh/';
+const API_URL = 'https://proxy.cors.sh/';
+const CORS_HEADERS = {
+  'x-cors-api-key': 'temp_2a400d8f9a241d99c1d834dd2de227a1',
+  'Origin': 'https://alpinepo.github.io'
+};
+const REFRESH_MS = 5 * 60 * 1000;
 
-  let lastData = null;
+// Only departure stopIDs needed — arrivals are calculated via scheduled duration offsets
+const ALL_STOP_IDS = [
+  873,   // Grinzing 38A (start R1, R2)
+  4402,  // Heiligenstadt U4 departure
+  4214,  // Schottenring U2 departure
+  4113,  // Schwedenplatz U1 departure
+  1221,  // Grinzing 38 (start R3)
+  1288   // Oberdöbling S45 departure
+];
 
-  function updateClock() {
-    const now = new Date();
-    document.getElementById('clock').textContent =
-      now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    document.getElementById('clock-date').textContent =
-      now.toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'short' });
-    if (lastData) renderAll(lastData);
+// Route definitions
+const ROUTES = [
+  {
+    id: 'R1',
+    name: 'Bus - U2',
+    startStop: 873,
+    startLine: '38A',
+    segments: [
+      {
+        name: 'Grinzing → Heiligenstadt',
+        line: '38A',
+        depStop: 873,
+        arrStop: 826,
+        label: 'Bus 38A'
+      },
+      {
+        name: 'Heiligenstadt → Schottenring',
+        line: 'U4',
+        depStop: 4402,
+        arrStop: 4408,
+        label: 'U4',
+        transferFromPrev: 4  // min allowable between prev arrStop and this depStop
+      },
+      {
+        name: 'Schottenring → Praterstern',
+        line: 'U2',
+        depStop: 4214,
+        arrStop: 4263,
+        label: 'U2',
+        transferFromPrev: 4
+      }
+    ]
+  },
+  {
+    id: 'R2',
+    name: 'Bus - U1',
+    startStop: 873,
+    startLine: '38A',
+    segments: [
+      {
+        name: 'Grinzing → Heiligenstadt',
+        line: '38A',
+        depStop: 873,
+        arrStop: 826,
+        label: 'Bus 38A'
+      },
+      {
+        name: 'Heiligenstadt → Schwedenplatz',
+        line: 'U4',
+        depStop: 4402,
+        arrStop: 4410,
+        label: 'U4',
+        transferFromPrev: 4
+      },
+      {
+        name: 'Schwedenplatz → Praterstern',
+        line: 'U1',
+        depStop: 4113,
+        arrStop: 4117,
+        label: 'U1',
+        transferFromPrev: 4
+      }
+    ]
+  },
+  {
+    id: 'R3',
+    name: 'Straßenbahn - S45',
+    startStop: 1221,
+    startLine: '38',
+    segments: [
+      {
+        name: 'Grinzing → Oberdöbling',
+        line: '38',
+        depStop: 1221,
+        arrStop: 1226,
+        label: 'Tram 38'
+      },
+      {
+        name: 'Oberdöbling → Handelskai',
+        line: 'S45',
+        depStop: 1288,
+        arrStop: 4648,
+        label: 'S45',
+        transferFromPrev: 3
+      }
+    ]
   }
+];
 
-  function setStatus(ok, text) {
-    document.getElementById('status-dot').className = 'dot' + (ok ? '' : ' error');
-    document.getElementById('status-text').textContent = text;
+// Group A: Routes 1 & 2 (start 873), Group B: Route 3 (start 1221)
+const GROUP_A = ['R1', 'R2'];
+const GROUP_B = ['R3'];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+
+let stopData = {}; // stopId -> { lines: [...] }
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── FETCH ────────────────────────────────────────────────────────────────────
+
+// ÖBB IBNR station IDs for S45 stops (not served by Wiener Linien API)
+const OEBB_STOPS = {
+  1288: '8100441',  // Wien Oberdöbling  (S45 departure stop)
+  4648: '8101947'   // Wien Handelskai   (S45 arrival stop — unused for dep but kept for consistency)
+};
+const OEBB_API = 'https://v6.oebb.transport.rest';
+
+// Fetch one Wiener Linien stop
+async function fetchWLStop(stopId) {
+  const ts = Date.now();
+  const url = API_URL + `https://www.wienerlinien.at/ogd_realtime/monitor?stopId=${stopId}&_=${ts}`;
+  const res = await fetch(url, { headers: CORS_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for WL stop ${stopId}`);
+  return res.json();
+}
+
+// Fetch one ÖBB stop and normalise into the same line/departure structure
+// used by stopData, so getDepartures() works without modification.
+// ÖBB response: { departures: [{ when, plannedWhen, delay, line: { name }, direction }] }
+// We only want S45 departures in the towards-Handelskai direction.
+async function fetchOebbStop(wlStopId) {
+  const ibnr = OEBB_STOPS[wlStopId];
+  const url = `${OEBB_API}/stops/${ibnr}/departures?results=20&duration=90`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ÖBB stop ${ibnr}`);
+  const json = await res.json();
+
+  // Normalise ÖBB departures into WL-compatible line objects keyed by line name
+  const lineMap = {};
+  for (const dep of (json.departures ?? [])) {
+    const name = dep.line?.name ?? '';
+    if (!name) continue;
+    // For stopID 1288 (Oberdöbling) only keep S45 towards Handelskai
+    if (wlStopId === 1288 && name !== 'S45') continue;
+    if (wlStopId === 1288 && dep.direction &&
+        !dep.direction.toLowerCase().includes('handelskai')) continue;
+
+    if (!lineMap[name]) {
+      lineMap[name] = {
+        name,
+        departures: { departure: [] }
+      };
+    }
+    lineMap[name].departures.departure.push({
+      departureTime: {
+        timePlanned: dep.plannedWhen ?? dep.when,
+        timeReal:    dep.when ?? dep.plannedWhen,
+        countdown:   dep.delay != null ? Math.round(dep.delay / 60) : 0
+      }
+    });
   }
+  return Object.values(lineMap);
+}
 
 async function fetchData() {
+  setStatus(null, 'Loading');
   try {
-    const headers = {
-      'x-cors-api-key': 'temp_2a400d8f9a241d99c1d834dd2de227a1',
-      'Origin': 'https://alpinepo.github.io'
-    };
-    const ts = Date.now();
-    const [res1, res2] = await Promise.all([
-      fetch(API_URL + 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&_=' + ts, { headers }),
-      fetch(API_URL + 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=873&_=' + ts, { headers })
+    // Wiener Linien stops — split into 2 batches to respect cors.sh rate limit
+    const wlBatch1 = ALL_STOP_IDS.slice(0, 3);
+    const wlBatch2 = ALL_STOP_IDS.slice(3);
+
+    const [wlResults1, wlResults2, oebbResult] = await Promise.all([
+      Promise.all(wlBatch1.map(fetchWLStop)),
+      Promise.all(wlBatch2.map(fetchWLStop)),
+      fetchOebbStop(1288)   // Oberdöbling S45 — fetched directly, no CORS proxy needed
     ]);
-    if (!res1.ok) throw new Error(`HTTP ${res1.status} ${res1.statusText}`);
-    if (!res2.ok) throw new Error(`HTTP ${res2.status} ${res2.statusText}`);
-    const [json1, json2] = await Promise.all([res1.json(), res2.json()]);
 
-    // Merge monitors from both responses
-    const monitors1 = json1?.data?.monitors ?? [];
-    const monitors2 = json2?.data?.monitors ?? [];
-    lastData = { data: { monitors: [...monitors1, ...monitors2] } };
+    const allWlResults = [...wlResults1, ...wlResults2];
 
-    renderAll(lastData);
+    stopData = {};
+
+    // Store Wiener Linien results
+    ALL_STOP_IDS.forEach((sid, i) => {
+      const monitors = allWlResults[i]?.data?.monitors ?? [];
+      const lines = [];
+      monitors.forEach(m => (m.lines ?? []).forEach(l => lines.push(l)));
+      stopData[sid] = lines;
+    });
+
+    // Store ÖBB result under the WL stopID key so route logic finds it normally
+    stopData[1288] = oebbResult;
+
+    renderAll();
     const t = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     document.getElementById('last-fetch').textContent = `↻ ${t}`;
     setStatus(true, 'Live');
   } catch (e) {
     setStatus(false, e.message);
-    document.getElementById('last-fetch').textContent = String(e);
+    document.getElementById('last-fetch').textContent = '⚠ ' + e.message;
   }
 }
 
-  function renderAll(json) {
-    const monitors = json?.data?.monitors ?? [];
-    const byRbl = {};
-    for (const m of monitors) {
-      const rbl = m?.locationStop?.properties?.attributes?.rbl;
-      if (rbl) byRbl[rbl] = m;
-    }
-    STOPS.forEach((stop, idx) => renderPanel(idx, stop, byRbl[stop.rbl]));
-  }
+function setStatus(ok, msg) {
+  const dot = document.getElementById('status-dot');
+  if (ok === null) { dot.className = 'status-dot'; dot.style.background = 'var(--accent)'; }
+  else if (ok) { dot.className = 'status-dot'; dot.style.background = 'var(--early)'; }
+  else { dot.className = 'status-dot error'; dot.style.background = 'var(--late)'; }
+}
 
-  function renderPanel(idx, stop, monitor) {
-    const now = new Date();
-    const el = document.getElementById(`panel-${idx}`);
-    const ac = stop.type === 'bus' ? 'bus' : 'tram';
+// ─── SCHEDULED DURATIONS (minutes) ───────────────────────────────────────────
+// Keyed by "depStop->arrStop", used to calculate arrival times from departure times
+const DURATIONS = {
+  '873->826':   9,   // 38A  Grinzing → Heiligenstadt
+  '4402->4408': 6,   // U4   Heiligenstadt → Schottenring
+  '4402->4410': 8,   // U4   Heiligenstadt → Schwedenplatz
+  '4214->4263': 3,   // U2   Schottenring → Praterstern
+  '4113->4117': 2,   // U1   Schwedenplatz → Praterstern
+  '1221->1226': 4,   // 38   Grinzing → Oberdöbling
+  '1288->4648': 9    // S45  Oberdöbling → Handelskai
+};
 
-    // Collect and sort departures
-    let deps = [];
-    for (const line of monitor?.lines ?? []) {
-      for (const dep of line?.departures?.departure ?? []) {
-        const real    = dep?.departureTime?.timeReal;
-        const planned = dep?.departureTime?.timePlanned;
-        const ts = real || planned;
-        if (ts) deps.push({
-          time:    new Date(ts),
-          planned: planned ? new Date(planned) : null,
-          real:    real    ? new Date(real)    : null
-        });
-      }
-    }
-    deps.sort((a, b) => a.time - b.time);
-    deps = deps.slice(0, 3);
+function getDuration(depStop, arrStop) {
+  return DURATIONS[`${depStop}->${arrStop}`] ?? null;
+}
 
-    let rowsHtml = '';
-    if (deps.length === 0) {
-      rowsHtml = `<div class="no-data">Keine Daten verfügbar / No data available</div>`;
+// ─── DATA HELPERS ─────────────────────────────────────────────────────────────
+
+// Get departures for a specific line name at a stop, sorted by planned time
+function getDepartures(stopId, lineName) {
+  const lines = stopData[stopId] ?? [];
+  const line = lines.find(l => l.name?.toUpperCase() === lineName?.toUpperCase());
+  if (!line) return [];
+  return (line.departures?.departure ?? []).map(d => ({
+    planned: new Date(d.departureTime.timePlanned),
+    real: new Date(d.departureTime.timeReal),
+    countdown: d.departureTime.countdown
+  })).sort((a, b) => a.planned - b.planned);
+}
+
+// Derive arrival times from departure time + scheduled duration.
+// arrPlanned = depPlanned + duration
+// arrReal    = depReal    + duration  (same vehicle, delay carried through)
+function calcArrival(depPlanned, depReal, depStop, arrStop) {
+  const dur = getDuration(depStop, arrStop);
+  if (dur === null) return { arrPlanned: null, arrReal: null };
+  const ms = dur * 60000;
+  return {
+    arrPlanned: new Date(depPlanned.getTime() + ms),
+    arrReal:    new Date(depReal.getTime()    + ms)
+  };
+}
+
+// Delta in minutes: positive = late, negative = early
+function deltaMin(real, planned) {
+  return Math.round((real - planned) / 60000);
+}
+
+function fmtTime(date) {
+  if (!date) return '--:--';
+  return date.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function deltaHTML(real, planned) {
+  if (!real || !planned) return '';
+  const d = deltaMin(real, planned);
+  if (d === 0) return '';
+  const cls = d > 0 ? 'late' : 'early';
+  const sign = d > 0 ? '+' : '';
+  return `<span class="time-delta ${cls}">${sign}${d} min</span>`;
+}
+
+// ─── ROUTE RESOLUTION ─────────────────────────────────────────────────────────
+
+// For a given start departure resolve all segments using:
+// - Live departure times from API for each segment's depStop
+// - Arrival times derived from depReal + scheduled duration
+// - Transfer time = depReal of next segment minus arrReal of previous segment
+function resolveRoute(route, startDep) {
+  const segments = [];
+  let prevArrPlanned = null;
+  let prevArrReal    = null;
+
+  for (let i = 0; i < route.segments.length; i++) {
+    const seg = route.segments[i];
+
+    let depPlanned, depReal;
+
+    if (i === 0) {
+      // First segment uses the top-level departure being rendered
+      depPlanned = startDep.planned;
+      depReal    = startDep.real;
     } else {
-      deps.forEach((dep, i) => {
-        const depDate  = dep.time;
-        const diffMs   = depDate - now;
-        const diffMin  = Math.round(diffMs / 60000);
-        const imminent = diffMin <= 1;
-        const soon     = diffMin <= 5;
-        const barPct   = Math.max(0, Math.min(100, 100 - (diffMin / 30) * 100));
-        const clockStr = depDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
-
-        // Early / late indicator
-        let punctualityHtml = '';
-        if (dep.real && dep.planned) {
-          const diffSec = Math.round((dep.real - dep.planned) / 1000);
-          const diffMins = Math.round(diffSec / 60);
-          if (diffSec > 60) {
-            punctualityHtml = `<span class="punctuality late">+${diffMins} min</span>`;
-          } else if (diffSec < -60) {
-            punctualityHtml = `<span class="punctuality early">${diffMins} min</span>`;
-          } else {
-            punctualityHtml = `<span class="punctuality ontime">On time</span>`;
-          }
-        }
-
-        const countdownHtml = diffMin <= 0
-          ? `<div class="now-label">Jetzt!</div>`
-          : `<div class="dep-countdown">${diffMin}</div><span class="dep-unit">min</span>`;
-
-        rowsHtml += `
-          <div class="departure-row${soon ? ' soon' : ''}">
-            <div class="dep-num">${i + 1}</div>
-            <div class="dep-main">
-              <div class="dep-clock${imminent ? ' imminent' : ''}">${clockStr} ${punctualityHtml}</div>
-              <div class="dep-bar"><div class="dep-bar-fill ${ac}" style="width:${barPct}%"></div></div>
-            </div>
-            <div class="dep-right">${countdownHtml}</div>
-          </div>`;
-      });
+      // Later segments: find the first live departure of this line at depStop
+      // that is on or after prevArrPlanned (earliest possible arrival at transfer)
+      const deps = getDepartures(seg.depStop, seg.line);
+      const candidate = deps.find(d => d.planned >= prevArrPlanned);
+      if (!candidate) return null; // no connecting service in data window
+      depPlanned = candidate.planned;
+      depReal    = candidate.real;
     }
 
-    el.innerHTML = `
-      <div class="panel-header">
-        <div class="line-badge ${ac}">${stop.line}</div>
-        <div>
-          <div class="stop-name">${stop.name}</div>
-          <div class="stop-towards">→ ${stop.towards}</div>
-        </div>
-      </div>
-      <div class="departures">${rowsHtml}</div>`;
+    // Arrival = departure + scheduled duration for this stop pair
+    const { arrPlanned, arrReal } = calcArrival(depPlanned, depReal, seg.depStop, seg.arrStop);
+
+    // Transfer allowance: actual minutes between previous arrival (real) and
+    // this departure (real). Only meaningful from segment 2 onwards.
+    let transferActualMin = null;
+    if (i > 0 && prevArrReal && depReal) {
+      transferActualMin = Math.round((depReal - prevArrReal) / 60000);
+    }
+
+    segments.push({
+      ...seg,
+      depPlanned,
+      depReal,
+      arrPlanned,
+      arrReal,
+      transferAllowance:  seg.transferFromPrev ?? null,
+      transferActualMin
+    });
+
+    // Pass this segment's arrival forward for next iteration
+    prevArrPlanned = arrPlanned ?? depPlanned;
+    prevArrReal    = arrReal    ?? depReal;
   }
 
-  setInterval(updateClock, 1000);
-  updateClock();
-  fetchData();
-  setInterval(fetchData, REFRESH_MS);
+  return segments;
+}
+
+// ─── RENDERING ────────────────────────────────────────────────────────────────
+
+function renderAll() {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  // Get top-3 departures for each group's start stop & line
+  const groupADeps = getTopDepartures(873, '38A', 3);
+  const groupBDeps = getTopDepartures(1221, '38', 3);
+
+  // Group A
+  const groupALabel = document.createElement('div');
+  groupALabel.className = 'group-label';
+  groupALabel.textContent = 'Routes from Grinzing Bus 38A → Praterstern';
+  main.appendChild(groupALabel);
+
+  if (groupADeps.length === 0) {
+    main.appendChild(noDataEl('No departure data for Bus 38A at Grinzing'));
+  } else {
+    groupADeps.forEach((dep, idx) => {
+      main.appendChild(renderDepCard(dep, idx + 1, GROUP_A));
+    });
+  }
+
+  // Group B
+  const groupBLabel = document.createElement('div');
+  groupBLabel.className = 'group-label';
+  groupBLabel.textContent = 'Routes from Grinzing Tram 38 → Handelskai';
+  main.appendChild(groupBLabel);
+
+  if (groupBDeps.length === 0) {
+    main.appendChild(noDataEl('No departure data for Tram 38 at Grinzing'));
+  } else {
+    groupBDeps.forEach((dep, idx) => {
+      main.appendChild(renderDepCard(dep, idx + 1, GROUP_B));
+    });
+  }
+}
+
+function getTopDepartures(stopId, lineName, n) {
+  return getDepartures(stopId, lineName).slice(0, n);
+}
+
+function noDataEl(msg) {
+  const d = document.createElement('div');
+  d.className = 'error-msg';
+  d.textContent = msg;
+  return d;
+}
+
+function renderDepCard(dep, num, routeIds) {
+  const card = document.createElement('div');
+  card.className = 'dep-card';
+
+  // Departure header
+  const dh = document.createElement('div');
+  dh.className = 'dep-header';
+
+  const dn = document.createElement('div');
+  dn.className = 'dep-num';
+  dn.textContent = `DEPARTURE ${num}`;
+
+  const dt = document.createElement('div');
+  dt.className = 'dep-time';
+  dt.textContent = fmtTime(dep.real);
+
+  const dd = document.createElement('div');
+  dd.className = 'dep-delta';
+  const dm = deltaMin(dep.real, dep.planned);
+  if (dm === 0) {
+    dd.className += ' ontime';
+    dd.textContent = 'On time';
+  } else if (dm > 0) {
+    dd.className += ' late';
+    dd.textContent = `+${dm} min`;
+  } else {
+    dd.className += ' early';
+    dd.textContent = `${dm} min`;
+  }
+
+  const lineBadge = document.createElement('div');
+  lineBadge.className = 'dep-line-badge';
+  lineBadge.textContent = `Plan: ${fmtTime(dep.planned)}`;
+
+  dh.appendChild(dn);
+  dh.appendChild(dt);
+  dh.appendChild(dd);
+  dh.appendChild(lineBadge);
+  card.appendChild(dh);
+
+  // Route blocks
+  routeIds.forEach(rid => {
+    const route = ROUTES.find(r => r.id === rid);
+    if (!route) return;
+    // Only resolve routes that share the same start stop/line as this dep
+    if (route.startStop !== dep.planned.getTime && true) {
+      const segs = resolveRoute(route, dep);
+      card.appendChild(renderRouteBlock(route, segs));
+    }
+  });
+
+  return card;
+}
+
+function renderRouteBlock(route, segments) {
+  const block = document.createElement('div');
+  block.className = 'route-block';
+
+  // Route header
+  const rh = document.createElement('div');
+  rh.className = 'route-header';
+
+  const rb = document.createElement('div');
+  rb.className = 'route-badge';
+  rb.textContent = route.id;
+
+  const rn = document.createElement('div');
+  rn.className = 'route-name';
+  rn.textContent = route.name;
+
+  rh.appendChild(rb);
+  rh.appendChild(rn);
+
+  if (segments) {
+    const lastSeg = segments[segments.length - 1];
+    const startTime = fmtTime(segments[0].depReal);
+    const endTime = fmtTime(lastSeg.arrReal ?? lastSeg.arrPlanned);
+    const rs = document.createElement('div');
+    rs.className = 'route-summary';
+    rs.textContent = `${startTime} → ${endTime}`;
+    rh.appendChild(rs);
+  }
+
+  block.appendChild(rh);
+
+  if (!segments) {
+    const nd = document.createElement('div');
+    nd.className = 'no-routes';
+    nd.textContent = 'No connecting service data available';
+    block.appendChild(nd);
+    return block;
+  }
+
+  // Segment table
+  const table = document.createElement('table');
+  table.className = 'seg-table';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>Segment</th>
+    <th>Line</th>
+    <th>Departs</th>
+    <th>Arrives</th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  segments.forEach((seg, i) => {
+    // Transfer row (before segment if not first)
+    if (i > 0 && seg.transferAllowance !== null) {
+      const tr = document.createElement('tr');
+      tr.className = 'transfer-row';
+      const transferMin = seg.transferActualMin !== null
+        ? seg.transferActualMin
+        : seg.transferAllowance;
+      const transferDisplay = seg.transferActualMin !== null
+        ? `${seg.transferActualMin} min available`
+        : `${seg.transferAllowance} min allowed`;
+      tr.innerHTML = `
+        <td colspan="3"><span class="transfer-label">⇄ Transfer Allowance</span></td>
+        <td class="transfer-time">${transferDisplay}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    // Segment row
+    const tr = document.createElement('tr');
+
+    const depDelta = seg.depReal && seg.depPlanned ? deltaHTML(seg.depReal, seg.depPlanned) : '';
+    const arrDelta = seg.arrReal && seg.arrPlanned ? deltaHTML(seg.arrReal, seg.arrPlanned) : '';
+
+    tr.innerHTML = `
+      <td class="seg-name">${seg.name}</td>
+      <td class="seg-line">${seg.label}</td>
+      <td class="time-cell">${fmtTime(seg.depReal || seg.depPlanned)}${depDelta}</td>
+      <td class="time-cell">${seg.arrPlanned ? fmtTime(seg.arrReal || seg.arrPlanned) + arrDelta : '<span style="color:var(--text-dim)">—</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  block.appendChild(table);
+  return block;
+}
+
+// ─── AUTO REFRESH ─────────────────────────────────────────────────────────────
+
+fetchData();
+setInterval(fetchData, REFRESH_MS);
 </script>
-<style>
-  .punctuality {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: bold;
-    padding: 0.1rem 0.35rem;
-    border-radius: 3px;
-    vertical-align: middle;
-    margin-left: 0.4rem;
-  }
-  .punctuality.late   { background: #3a0010; color: #ff3355; }
-  .punctuality.early  { background: #002a18; color: var(--green); }
-  .punctuality.ontime { background: #1a2a1a; color: var(--green); opacity: 0.7; }
-  #refresh-btn {
-    position: fixed;
-    bottom: 3.5rem;
-    right: 1rem;
-    background: var(--amber);
-    color: #000;
-    border: none;
-    border-radius: 50%;
-    width: 3rem;
-    height: 3rem;
-    font-size: 1.4rem;
-    cursor: pointer;
-    z-index: 99;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-</style>
-<button id="refresh-btn" onclick="fetchData()">↻</button>  
 </body>
 </html>
