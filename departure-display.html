@@ -337,15 +337,25 @@
   }
 
 async function fetchData() {
-    try {
-const res = await fetch(API_URL + 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&stopId=873&_=' + Date.now(), {
-  headers: {
-    'x-cors-api-key': 'temp_2a400d8f9a241d99c1d834dd2de227a1',
-    'Origin': 'https://alpinepo.github.io'
-  }
-});
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    lastData = await res.json();
+  try {
+    const headers = {
+      'x-cors-api-key': 'temp_2a400d8f9a241d99c1d834dd2de227a1',
+      'Origin': 'https://alpinepo.github.io'
+    };
+    const ts = Date.now();
+    const [res1, res2] = await Promise.all([
+      fetch(API_URL + 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=1221&_=' + ts, { headers }),
+      fetch(API_URL + 'https://www.wienerlinien.at/ogd_realtime/monitor?stopId=873&_=' + ts, { headers })
+    ]);
+    if (!res1.ok) throw new Error(`HTTP ${res1.status} ${res1.statusText}`);
+    if (!res2.ok) throw new Error(`HTTP ${res2.status} ${res2.statusText}`);
+    const [json1, json2] = await Promise.all([res1.json(), res2.json()]);
+
+    // Merge monitors from both responses
+    const monitors1 = json1?.data?.monitors ?? [];
+    const monitors2 = json2?.data?.monitors ?? [];
+    lastData = { data: { monitors: [...monitors1, ...monitors2] } };
+
     renderAll(lastData);
     const t = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     document.getElementById('last-fetch').textContent = `↻ ${t}`;
