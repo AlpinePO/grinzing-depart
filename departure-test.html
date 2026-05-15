@@ -517,7 +517,7 @@ async function fetchWLStop(stopId) {
 // We only want S45 departures in the towards-Handelskai direction.
 async function fetchOebbStop(wlStopId) {
   const ibnr = OEBB_STOPS[wlStopId];
-  const url = API_URL + `${OEBB_API}/stops/${ibnr}/departures?results=20&duration=90&suburban=true`;
+  const url = API_URL + `${OEBB_API}/stops/${ibnr}/departures?results=40&duration=180&suburban=true`;
   const res = await fetch(url, { headers: CORS_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ÖBB stop ${ibnr}`);
   const json = await res.json();
