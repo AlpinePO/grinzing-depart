@@ -566,11 +566,11 @@ async function fetchData() {
     const wlBatch1 = ALL_STOP_IDS.slice(0, 3);
     const wlBatch2 = ALL_STOP_IDS.slice(3);
 
-    const [wlResults1, wlResults2, oebbResult] = await Promise.all([
-      Promise.all(wlBatch1.map(fetchWLStop)),
-      Promise.all(wlBatch2.map(fetchWLStop)),
-      fetchOebbStop(1288)   // Oberdöbling S45 — fetched directly, no CORS proxy needed
-    ]);
+const [wlResults1, wlResults2, oebbOberdoebling] = await Promise.all([
+  Promise.all(wlBatch1.map(fetchWLStop)),
+  Promise.all(wlBatch2.map(fetchWLStop)),
+  fetchOebbStop(1288)
+]);
 
     const allWlResults = [...wlResults1, ...wlResults2];
 
