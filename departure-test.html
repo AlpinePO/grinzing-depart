@@ -361,7 +361,7 @@ async function fetchWLStop(stopId) {
 // Returns { wlStopId, lines } so fetchAllOebbStops can build the stopData map.
 async function fetchOneOebbStop(wlStopId) {
   const ibnr = OEBB_STOPS[wlStopId];
-  const url  = API_URL + `${OEBB_API}/stops/${ibnr}/departures?results=60&duration=240`;
+  const url  = API_URL + `${OEBB_API}/stops/${ibnr}/departures?results=80&duration=360`;
   const res  = await fetch(url, { headers: CORS_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ÖBB stop ${ibnr}`);
   const json = await res.json();
