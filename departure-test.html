@@ -261,7 +261,7 @@ const REFRESH_MS = 5 * 60 * 1000;
 // ─── STOP IDs ─────────────────────────────────────────────────────────────────
 
 // Wiener Linien departure stopIDs — arrivals calculated via duration offsets
-// Note: 1288 (Oberdöbling) is fetched via ÖBB API, not included here
+// Note: 1288 (Oberdöbling) and 4648 (Handelskai) fetched via ÖBB API
 const ALL_STOP_IDS = [
   873,   // Grinzing 38A  (R1, R2)
   4402,  // Heiligenstadt U4
@@ -278,10 +278,7 @@ const OEBB_STOPS = {
 const OEBB_API = 'https://v6.oebb.transport.rest/api';
 
 // Mainline lines at Handelskai that pass through Praterstern
-const HANDELSKAI_LINES = ['REX1','S1','S7','S4','S2','REX3','CJX9','S3'];
-const HANDELSKAI_DIRECTIONS = [
-  'mödling', 'meidling', 'payerbach', 'airport', 'wr.neustadt', 'wiener neustadt'
-];
+const HANDELSKAI_LINES = ['REX1','REX2','REX3','S1','S2','S3','S4','S7','CJX9'];
 
 // ─── ROUTES ───────────────────────────────────────────────────────────────────
 
@@ -324,6 +321,19 @@ const ROUTES = [
 const GROUP_A = ['R1', 'R2'];
 const GROUP_B = ['R3'];
 
+// ─── SCHEDULED DURATIONS (minutes) ───────────────────────────────────────────
+
+const DURATIONS = {
+  '873->826':      9,   // 38A  Grinzing → Heiligenstadt
+  '4402->4408':    6,   // U4   Heiligenstadt → Schottenring
+  '4402->4410':    9,   // U4   Heiligenstadt → Schwedenplatz
+  '4214->4263':    3,   // U2   Schottenring → Praterstern
+  '4113->4117':    3,   // U1   Schwedenplatz → Praterstern
+  '1221->1226':    5,   // 38   Grinzing → Oberdöbling
+  '1288->4648':    9,   // S45  Oberdöbling → Handelskai
+  '4648->1290201': 4    // ÖBB  Handelskai → Praterstern
+};
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 
 let stopData = {};
@@ -362,7 +372,7 @@ async function fetchOneOebbStop(wlStopId) {
     if (!rawName) continue;
 
     // Normalise: strip spaces and train number suffixes
-    // e.g. "S 45 (Train-No. 92893)" -> "S45", "REX 1" -> "REX1"
+    // e.g. "S 45 (Train-No. 92893)" -> "S45", "REX 1 (Train-No. 2331)" -> "REX1"
     const normName = rawName.replace(/\s+/g, '').replace(/\(.*\).*$/, '');
 
     // Oberdöbling: S45 towards Handelskai only
@@ -371,13 +381,11 @@ async function fetchOneOebbStop(wlStopId) {
       if (dep.direction && !dep.direction.toLowerCase().includes('handelskai')) continue;
     }
 
-    // Handelskai: mainline trains towards Praterstern destinations only
+    // Handelskai: mainline trains from Bahnsteige 1-2 only (southbound through Praterstern)
+    // Stop ID 8101934 = Bahnsteige 1-2 (southbound), 8101947 = Bahnsteige 11-12 (S45)
     if (wlStopId === 4648) {
       if (!HANDELSKAI_LINES.includes(normName)) continue;
-      if (dep.direction) {
-        const dir = dep.direction.toLowerCase();
-        if (!HANDELSKAI_DIRECTIONS.some(d => dir.includes(d))) continue;
-      }
+      if (dep.stop?.id !== '8101934') continue;
     }
 
     if (!lineMap[normName]) {
@@ -407,7 +415,6 @@ async function fetchAllOebbStops() {
 async function fetchData() {
   setStatus(null, 'Loading');
   try {
-    // Same fetch pattern as working 2-segment version — single Promise.all
     const wlBatch1 = ALL_STOP_IDS.slice(0, 3);
     const wlBatch2 = ALL_STOP_IDS.slice(3);
 
@@ -419,7 +426,6 @@ async function fetchData() {
 
     stopData = {};
 
-    // Store WL results — ALL_STOP_IDS order matches wlResults1 + wlResults2
     const allWlResults = [...wlResults1, ...wlResults2];
     ALL_STOP_IDS.forEach((sid, i) => {
       const monitors = allWlResults[i]?.data?.monitors ?? [];
@@ -428,7 +434,6 @@ async function fetchData() {
       stopData[sid] = lines;
     });
 
-    // Store ÖBB results under their internal WL-style keys
     Object.assign(stopData, oebbMap);
 
     renderAll();
@@ -448,24 +453,11 @@ function setStatus(ok, msg) {
   else             { dot.className = 'status-dot error'; dot.style.background = 'var(--late)'; }
 }
 
-// ─── SCHEDULED DURATIONS (minutes) ───────────────────────────────────────────
-
-const DURATIONS = {
-  '873->826':      9,   // 38A  Grinzing → Heiligenstadt
-  '4402->4408':    6,   // U4   Heiligenstadt → Schottenring
-  '4402->4410':    9,   // U4   Heiligenstadt → Schwedenplatz
-  '4214->4263':    3,   // U2   Schottenring → Praterstern
-  '4113->4117':    3,   // U1   Schwedenplatz → Praterstern
-  '1221->1226':    5,   // 38   Grinzing → Oberdöbling
-  '1288->4648':    9,   // S45  Oberdöbling → Handelskai
-  '4648->1290201': 4    // ÖBB  Handelskai → Praterstern
-};
+// ─── DATA HELPERS ─────────────────────────────────────────────────────────────
 
 function getDuration(depStop, arrStop) {
   return DURATIONS[`${depStop}->${arrStop}`] ?? null;
 }
-
-// ─── DATA HELPERS ─────────────────────────────────────────────────────────────
 
 // Returns departures for a line at a stop, sorted by planned time.
 // Special value 'MAINLINE' combines all HANDELSKAI_LINES at that stop.
@@ -711,7 +703,9 @@ function renderRouteBlock(route, segments) {
       <td class="seg-name">${seg.name}</td>
       <td class="seg-line">${seg.label}</td>
       <td class="time-cell">${fmtTime(seg.depReal || seg.depPlanned)}${depDelta}</td>
-      <td class="time-cell">${seg.arrPlanned ? fmtTime(seg.arrReal || seg.arrPlanned) + arrDelta : '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td class="time-cell">${seg.arrPlanned
+        ? fmtTime(seg.arrReal || seg.arrPlanned) + arrDelta
+        : '<span style="color:var(--text-dim)">—</span>'}</td>
     `;
     tbody.appendChild(tr);
   });
